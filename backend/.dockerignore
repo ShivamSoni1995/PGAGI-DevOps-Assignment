@@ -1,0 +1,33 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment files
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+
+# OS files
+.DS_Store
+
+# Editor configs
+.vscode/
+.idea/
+
+# Docker files
+Dockerfile
+.dockerignore
