@@ -1,45 +1,38 @@
-############################
-# Stage 1: Builder
-############################
-FROM python:3.11-slim AS builder
+# -------------------------
+# Stage 1: Base
+# -------------------------
+FROM python:3.11-slim AS base
 
 WORKDIR /app
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# -------------------------
+# Stage 2: Dependencies
+# -------------------------
+FROM base AS deps
 
 COPY requirements.txt .
-RUN pip install --upgrade pip \
-    && pip install --prefix=/install -r requirements.txt \
-    && pip install --prefix=/install pytest
+RUN pip install --no-cache-dir -r requirements.txt
 
-############################
-# Stage 2: Test
-############################
-FROM python:3.11-slim AS test
+# -------------------------
+# Stage 3: Test
+# -------------------------
+FROM deps AS test
 
-WORKDIR /app
+COPY app ./app
+CMD ["pytest", "-q"]
 
-COPY --from=builder /install /usr/local
-COPY main.py .
-COPY tests ./tests
-
-RUN pytest
-
-############################
-# Stage 3: Runtime
-############################
-FROM python:3.11-slim AS runtime
-
-WORKDIR /app
+# -------------------------
+# Stage 4: Runtime
+# -------------------------
+FROM deps AS runtime
 
 RUN useradd -m appuser
-
-COPY --from=builder /install /usr/local
-COPY main.py .
-
 USER appuser
 
-EXPOSE 8000
+COPY app ./app
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
