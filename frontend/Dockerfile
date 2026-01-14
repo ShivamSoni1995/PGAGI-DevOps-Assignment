@@ -1,75 +1,56 @@
-#################################
-# Stage 1: Build
-#################################
-FROM node:20-alpine AS builder
-
+# -------------------------
+# Stage 1: Base
+# -------------------------
+FROM node:20-slim AS base
 WORKDIR /app
 
-ENV NODE_ENV=production
-ENV NEXT_PUBLIC_API_URL=http://localhost:8000
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_BROWSERS_PATH=0
-
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    libc6-compat
+# -------------------------
+# Stage 2: Dependencies
+# -------------------------
+FROM base AS deps
 
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
+
+# -------------------------
+# Stage 3: Test (Playwright)
+# -------------------------
+FROM deps AS test
+
+# Install Playwright browsers + system deps
+RUN npx playwright install --with-deps
+
+COPY . .
+
+# Required for CI
+ENV CI=true
+
+RUN npx playwright test
+
+# -------------------------
+# Stage 4: Build
+# -------------------------
+FROM deps AS build
 
 COPY . .
 RUN npm run build
 
-#################################
-# Stage 2: E2E Tests
-#################################
-FROM node:20-alpine AS test
+# -------------------------
+# Stage 5: Runtime
+# -------------------------
+FROM node:20-slim AS runtime
 
 WORKDIR /app
-
-ENV NODE_ENV=test
-ENV NEXT_PUBLIC_API_URL=http://localhost:8000
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_BROWSERS_PATH=0
-
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    libc6-compat
-
-COPY --from=builder /app /app
-
-# 🔐 CI-safe: runs automatically during docker build
-RUN npx playwright test
-
-#################################
-# Stage 3: Runtime
-#################################
-FROM node:20-alpine AS runtime
-
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-WORKDIR /app
-
 ENV NODE_ENV=production
-ENV NEXT_PUBLIC_API_URL=http://localhost:8000
 
-COPY --from=builder /app/package.json .
-COPY --from=builder /app/package-lock.json* .
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-
+RUN useradd -m appuser
 USER appuser
+
+COPY --from=build /app/package.json .
+COPY --from=build /app/package-lock.json* .
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
 
 EXPOSE 3000
 CMD ["npm", "start"]
