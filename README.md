@@ -1,7 +1,8 @@
 # DevOps Assignment
 
 This project consists of a FastAPI backend and a Next.js frontend that communicates with the backend.
-
+#adding a comment for testing
+#testing 2
 ## Project Structure
 
 ```
