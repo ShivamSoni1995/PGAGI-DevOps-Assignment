@@ -14,9 +14,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # -------------------------
+      # Checkout
+      # -------------------------
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # -------------------------
+      # Azure Login (OIDC)
+      # -------------------------
       - name: Azure Login (OIDC)
         uses: azure/login@v1
         with:
@@ -24,29 +30,70 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      # -------------------------
+      # Fetch secrets from Key Vault (Azure CLI)
+      # -------------------------
       - name: Fetch secrets from Key Vault
-        uses: Azure/get-keyvault-secrets@v1
-        with:
-          keyvault: pgagi-keyvault
-          secrets: |
-            ACR-LOGIN-SERVER
-            ACR-USERNAME
-            ACR-PASSWORD
+        run: |
+          echo "ACR_LOGIN_SERVER=$(az keyvault secret show \
+            --vault-name pgagi-keyvault \
+            --name ACR-LOGIN-SERVER \
+            --query value -o tsv)" >> $GITHUB_ENV
 
+          echo "ACR_USERNAME=$(az keyvault secret show \
+            --vault-name pgagi-keyvault \
+            --name ACR-USERNAME \
+            --query value -o tsv)" >> $GITHUB_ENV
+
+          echo "ACR_PASSWORD=$(az keyvault secret show \
+            --vault-name pgagi-keyvault \
+            --name ACR-PASSWORD \
+            --query value -o tsv)" >> $GITHUB_ENV
+
+      # -------------------------
+      # Docker login to ACR
+      # -------------------------
       - name: Docker login to ACR
         run: |
-          echo "${{ env.ACR-PASSWORD }}" | docker login ${{ env.ACR-LOGIN-SERVER }} \
-            -u ${{ env.ACR-USERNAME }} --password-stdin
+          echo "$ACR_PASSWORD" | docker login $ACR_LOGIN_SERVER \
+            -u "$ACR_USERNAME" --password-stdin
 
+      # -------------------------
+      # Backend tests
+      # -------------------------
+      - name: Run backend tests
+        run: |
+          docker build --target test -t backend-tests backend
+
+      # -------------------------
+      # Frontend tests
+      # -------------------------
+      - name: Run frontend tests
+        run: |
+          docker build --target test -t frontend-tests frontend
+
+      # -------------------------
+      # Build backend image
+      # -------------------------
       - name: Build backend image
         run: |
-          docker build -t ${{ env.ACR-LOGIN-SERVER }}/fastapi-backend:${{ github.sha }} backend
+          docker build \
+            -t $ACR_LOGIN_SERVER/fastapi-backend:${{ github.sha }} \
+            backend
 
+      # -------------------------
+      # Build frontend image
+      # -------------------------
       - name: Build frontend image
         run: |
-          docker build -t ${{ env.ACR-LOGIN-SERVER }}/nextjs-frontend:${{ github.sha }} frontend
+          docker build \
+            -t $ACR_LOGIN_SERVER/nextjs-frontend:${{ github.sha }} \
+            frontend
 
-      - name: Push images
+      # -------------------------
+      # Push images to ACR
+      # -------------------------
+      - name: Push images to ACR
         run: |
-          docker push ${{ env.ACR-LOGIN-SERVER }}/fastapi-backend:${{ github.sha }}
-          docker push ${{ env.ACR-LOGIN-SERVER }}/nextjs-frontend:${{ github.sha }}
+          docker push $ACR_LOGIN_SERVER/fastapi-backend:${{ github.sha }}
+          docker push $ACR_LOGIN_SERVER/nextjs-frontend:${{ github.sha }}
