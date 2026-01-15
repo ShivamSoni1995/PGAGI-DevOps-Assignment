@@ -5,8 +5,12 @@ test('homepage loads successfully', async ({ page }) => {
   await expect(page).toHaveTitle(/DevOps Assignment/);
 });
 
-test('backend status section is visible', async ({ page }) => {
+test('backend url is displayed', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('text=Backend')).toBeVisible();
+
+  await expect(
+    page.locator('text=Backend URL:')
+  ).toBeVisible();
 });
+
 
