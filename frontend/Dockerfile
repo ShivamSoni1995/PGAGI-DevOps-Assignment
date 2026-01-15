@@ -13,20 +13,23 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 # -------------------------
-# Stage 3: Test (Playwright)
+# Stage 3: Test
 # -------------------------
 FROM deps AS test
 
-# Install Playwright browsers + system deps
 RUN npx playwright install --with-deps
 
 COPY . .
 
-# Required for CI
 ENV CI=true
+ENV NEXT_PUBLIC_API_URL=http://localhost:8000
 
 RUN npx playwright test
 
+
+# Install Playwright browsers + system deps
+
+# Required 
 # -------------------------
 # Stage 4: Build
 # -------------------------
