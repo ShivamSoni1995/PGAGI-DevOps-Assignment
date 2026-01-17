@@ -1,0 +1,53 @@
+name: CD – Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy images to Azure Container Apps
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout (not strictly required, but good practice)
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Login to Azure using OIDC
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # 3️⃣ Set shared variables
+      - name: Set deployment variables
+        run: |
+          echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+          echo "ACR_LOGIN_SERVER=$(az acr show \
+            --name pgagidevopsacr \
+            --query loginServer \
+            -o tsv)" >> $GITHUB_ENV
+
+      # 4️⃣ Deploy backend
+      - name: Deploy backend container app
+        run: |
+          az containerapp update \
+            --name fastapi-backend \
+            --resource-group pgagi-devops-rg \
+            --image $ACR_LOGIN_SERVER/fastapi-backend:$IMAGE_TAG
+
+      # 5️⃣ Deploy frontend
+      - name: Deploy frontend container app
+        run: |
+          az containerapp update \
+            --name nextjs-frontend \
+            --resource-group pgagi-devops-rg \
+            --image $ACR_LOGIN_SERVER/nextjs-frontend:$IMAGE_TAG
