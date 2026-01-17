@@ -11,15 +11,13 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy images to Azure Container Apps
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code (good practice)
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Azure login using OIDC
+      # Azure Login via OIDC
       - name: Azure Login
         uses: azure/login@v1
         with:
@@ -27,17 +25,25 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # 3️⃣ Explicitly set subscription (CRITICAL FIX)
+      # Explicit subscription lock
       - name: Set Azure subscription
         run: |
           az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # 4️⃣ Verify Azure context (debug-safe, can keep)
-      - name: Verify Azure context
+      # Install containerapp extension (CRITICAL)
+      - name: Install Azure Container Apps CLI extension
         run: |
-          az account show
+          az extension add --name containerapp --upgrade
 
-      # 5️⃣ Set deployment variables
+      # HARD DEBUG – prove the app exists
+      - name: Debug – list container apps
+        run: |
+          az containerapp list \
+            --resource-group pgagi-devops-rg \
+            --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }} \
+            -o table
+
+      # Set image variables
       - name: Set deployment variables
         run: |
           echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
@@ -46,18 +52,20 @@ jobs:
             --query loginServer \
             -o tsv)" >> $GITHUB_ENV
 
-      # 6️⃣ Deploy backend container app
+      # Deploy backend
       - name: Deploy backend
         run: |
           az containerapp update \
             --name fastapi-backend \
             --resource-group pgagi-devops-rg \
+            --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }} \
             --image $ACR_LOGIN_SERVER/fastapi-backend:$IMAGE_TAG
 
-      # 7️⃣ Deploy frontend container app
+      # Deploy frontend
       - name: Deploy frontend
         run: |
           az containerapp update \
             --name nextjs-frontend \
             --resource-group pgagi-devops-rg \
+            --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }} \
             --image $ACR_LOGIN_SERVER/nextjs-frontend:$IMAGE_TAG
