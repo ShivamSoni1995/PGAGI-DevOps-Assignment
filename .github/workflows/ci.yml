@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - main   # ✅ Added so images exist before CD runs
 
 permissions:
   id-token: write
@@ -31,7 +32,14 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # -------------------------
-      # Fetch secrets from Key Vault (Azure CLI)
+      # Ensure correct subscription context
+      # -------------------------
+      - name: Set Azure subscription
+        run: |
+          az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # -------------------------
+      # Fetch ACR secrets from Key Vault
       # -------------------------
       - name: Fetch secrets from Key Vault
         run: |
