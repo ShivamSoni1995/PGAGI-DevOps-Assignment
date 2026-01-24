@@ -26,16 +26,17 @@ ENV NEXT_PUBLIC_API_URL=http://localhost:8000
 
 RUN npx playwright test
 
-
-# Install Playwright browsers + system deps
-
-# Required 
 # -------------------------
 # Stage 4: Build
 # -------------------------
 FROM deps AS build
 
 COPY . .
+
+# ✅ Added (as requested)
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 RUN npm run build
 
 # -------------------------
