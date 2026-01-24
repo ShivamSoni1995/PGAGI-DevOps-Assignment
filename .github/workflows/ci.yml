@@ -95,6 +95,7 @@ jobs:
       - name: Build frontend image
         run: |
           docker build \
+            --build-arg NEXT_PUBLIC_API_URL=https://fastapi-backend.lemonmeadow-07ae445d.southindia.azurecontainerapps.io \
             -t $ACR_LOGIN_SERVER/nextjs-frontend:${{ github.sha }} \
             frontend
 
